@@ -25,6 +25,7 @@
             [metabase.util.schema :as su]
             [metabase.sync.field-values :as sync-field-values]
             [metabase.sync.sync-metadata :as sync-metadata]
+            [metabase.util.cron :as cron-util]
             [schema.core :as s]
             [toucan
              [db :as db]
@@ -129,9 +130,18 @@
     (conj (vec dbs) virtual-db-metadata)
     dbs))
 
+(defn- add-expanded-schedules
+  "Add 'expanded' versions of the cron schedules strings for DBS in a format that is appropriate for frontend consumption."
+  [dbs]
+  (for [db dbs]
+    ;; TODO - should we remove the originals as well?
+    (assoc db
+      :schedules {:cache_field_values (cron-util/cron-string->schedule-map (:cache_field_values_schedule db))
+                  :metadata_sync      (cron-util/cron-string->schedule-map (:metadata_sync_schedule db))})))
+
 (defn- dbs-list [include-tables? include-cards?]
   (when-let [dbs (seq (filter mi/can-read? (db/select Database {:order-by [:%lower.name]})))]
-    (cond-> (add-native-perms-info dbs)
+    (cond-> (add-expanded-schedules (add-native-perms-info dbs))
       include-tables? add-tables
       include-cards?  add-virtual-tables-for-saved-cards)))
 
@@ -396,6 +406,8 @@
   "Update the metadata for this `Database`. This happens asynchronously."
   [id]
   ;; just publish a message and let someone else deal with the logistics
+  ;; TODO - does this make any more sense having this extra level of indirection?
+  ;; Why not just use a future?
   (events/publish-event! :database-trigger-sync (api/write-check Database id))
   {:status :ok})
 
@@ -407,8 +419,10 @@
   "Trigger a manual update of the schema metadata for this `Database`."
   [id]
   (api/check-superuser)
-  ;; TODO - should this happen async?
-  (sync-metadata/sync-db-metadata! (api/check-404 (Database id)))
+  ;; just wrap this in a future so it happens async
+  (api/let-404 [db (Database id)]
+    (future
+      (sync-metadata/sync-db-metadata! db)))
   {:status :ok})
 
 ;; TODO - do we also want an endpoint to manually trigger analysis. Or separate ones for classification/fingerprinting?
@@ -418,8 +432,10 @@
   "Trigger a manual scan of the field values for this `Database`."
   [id]
   (api/check-superuser)
-  ;; TODO - should this happen async?
-  (sync-field-values/update-field-values! (api/check-404 (Database id)))
+  ;; just wrap this is a future so it happens async
+  (api/let-404 [db (Database id)]
+    (future
+      (sync-field-values/update-field-values! db)))
   {:status :ok})
 
 

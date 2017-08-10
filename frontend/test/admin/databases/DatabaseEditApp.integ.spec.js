@@ -6,7 +6,7 @@
 import {
     login,
     createTestStore
-} from "metabase/__support__/integrated_tests";
+} from "__support__/integrated_tests";
 
 import React from "react";
 import { mount } from "enzyme";
@@ -14,7 +14,10 @@ import {
     INITIALIZE_DATABASE,
     RESCAN_DATABASE_FIELDS,
     SYNC_DATABASE_SCHEMA,
-    DISCARD_SAVED_FIELD_VALUES, addSampleDataset, DELETE_DATABASE, SAVE_DATABASE, saveDatabase, initializeDatabase
+    DISCARD_SAVED_FIELD_VALUES,
+    SAVE_DATABASE,
+    saveDatabase,
+    initializeDatabase
 } from "metabase/admin/databases/database";
 import DatabaseEditApp, { Tab } from "metabase/admin/databases/containers/DatabaseEditApp";
 import DatabaseEditForms from "metabase/admin/databases/components/DatabaseEditForms";
@@ -24,7 +27,6 @@ import Toggle from "metabase/components/Toggle";
 import { TestModal } from "metabase/components/Modal";
 import Select from "metabase/components/Select";
 import ColumnarSelector from "metabase/components/ColumnarSelector";
-import { getEditingDatabase } from "metabase/admin/databases/selectors";
 
 // Currently a lot of duplication with SegmentPane tests
 describe("DatabaseEditApp", () => {

@@ -3,17 +3,10 @@ import cx from "classnames";
 import _ from "underscore";
 
 import FormMessage from "metabase/components/form/FormMessage";
-import Select from "metabase/components/Select";
 
 import SchedulePicker from "metabase/components/SchedulePicker";
 import MetabaseAnalytics from "metabase/lib/analytics";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
-
-
-const DB_SYNC_OPTIONS = [
-    { name: 'Hourly' },
-    { name: 'Daily' }
-]
 
 export const SyncOption = ({ selected, name, description, children, select }) =>
     <div className="py2 relative" onClick={() => select(name.toLowerCase()) }>
@@ -27,7 +20,12 @@ export const SyncOption = ({ selected, name, description, children, select }) =>
                 borderStyle: 'solid'
             }}
         >
-            { selected && <div className="circle" style={{ width: 8, height: 8, backgroundColor: selected ? '#509ee3' : '#ddd' }}></div> }
+            { selected &&
+                <div
+                    className="circle"
+                    style={{ width: 8, height: 8, backgroundColor: selected ? '#509ee3' : '#ddd' }}
+                />
+            }
         </div>
         <div className="Form-offset">
             <div className={cx({ 'text-brand': selected })}>

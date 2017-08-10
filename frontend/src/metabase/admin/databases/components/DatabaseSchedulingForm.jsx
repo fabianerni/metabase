@@ -54,7 +54,7 @@ export default class DatabaseSchedulingForm extends Component {
         this.setState({
             unsavedDatabase: {
                 ...this.state.unsavedDatabase,
-                sync_schedule: newSchedule
+                metadata_sync_schedule: newSchedule
             }
         })
     }
@@ -111,8 +111,8 @@ export default class DatabaseSchedulingForm extends Component {
                                     updates to this database’s schema. In most cases, you should be fine leaving this
                                     set to sync hourly.</p>
                                 <SchedulePicker
-                                    schedule={!_.isString(unsavedDatabase.sync_schedule)
-                                        ? unsavedDatabase.sync_schedule
+                                    schedule={!_.isString(unsavedDatabase.metadata_sync_schedule)
+                                        ? unsavedDatabase.metadata_sync_schedule
                                         : {
                                             schedule_day: "mon",
                                             schedule_frame: null,

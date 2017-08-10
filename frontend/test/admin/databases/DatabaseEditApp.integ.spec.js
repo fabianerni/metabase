@@ -15,7 +15,7 @@ import {
     RESCAN_DATABASE_FIELDS,
     SYNC_DATABASE_SCHEMA,
     DISCARD_SAVED_FIELD_VALUES,
-    SAVE_DATABASE,
+    UPDATE_DATABASE,
     saveDatabase,
     initializeDatabase
 } from "metabase/admin/databases/database";
@@ -102,7 +102,7 @@ describe("DatabaseEditApp", () => {
 
             schedulingForm.find('button[children="Save"]').simulate("click");
 
-            await store.waitForActions([SAVE_DATABASE])
+            await store.waitForActions([UPDATE_DATABASE])
         });
 
         it("lets you change the table change frequency to Rarely", async () => {
@@ -123,7 +123,7 @@ describe("DatabaseEditApp", () => {
             expect(syncOptionRarely.props().selected).toEqual(true);
 
             schedulingForm.find('button[children="Save"]').get(0).click();
-            await store.waitForActions([SAVE_DATABASE])
+            await store.waitForActions([UPDATE_DATABASE])
         });
 
         it("lets you change the table change frequency to Never", async () => {
@@ -144,7 +144,7 @@ describe("DatabaseEditApp", () => {
             expect(syncOptionsNever.props().selected).toEqual(true);
 
             schedulingForm.find('button[children="Save"]').get(0).click();
-            await store.waitForActions([SAVE_DATABASE])
+            await store.waitForActions([UPDATE_DATABASE])
 
         });
 
@@ -173,8 +173,15 @@ describe("DatabaseEditApp", () => {
             const database = (await store.dispatch(initializeDatabase(1))).payload
             await store.dispatch(saveDatabase(
                 // reset to "Often" setting for field fingerprinting
-                { ...database, is_full_sync: true },
-                { ...database.details, is_static: false }
+                {
+                    ...database,
+
+                    is_full_sync: true
+                },
+                {
+                    ...database.details,
+                    is_static: false
+                }
             ))
         })
     })

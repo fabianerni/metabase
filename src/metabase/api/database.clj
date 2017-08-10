@@ -17,11 +17,14 @@
              [card :refer [Card]]
              [database :as database :refer [Database protected-password]]
              [field :refer [Field]]
+             [field-values :refer [FieldValues]]
              [interface :as mi]
              [permissions :as perms]
              [table :refer [Table]]]
             [metabase.query-processor.util :as qputil]
             [metabase.util.schema :as su]
+            [metabase.sync.field-values :as sync-field-values]
+            [metabase.sync.sync-metadata :as sync-metadata]
             [schema.core :as s]
             [toucan
              [db :as db]
@@ -390,7 +393,7 @@
 ;; TODO - Shouldn't we just check for superuser status instead of write checking?
 ;; NOTE Atte: This becomes maybe obsolete
 (api/defendpoint POST "/:id/sync"
-  "Update the metadata for this `Database`."
+  "Update the metadata for this `Database`. This happens asynchronously."
   [id]
   ;; just publish a message and let someone else deal with the logistics
   (events/publish-event! :database-trigger-sync (api/write-check Database id))
@@ -403,18 +406,43 @@
 (api/defendpoint POST "/:id/sync_schema"
   "Trigger a manual update of the schema metadata for this `Database`."
   [id]
+  (check-superuser)
+  ;; TODO - should this happen async?
+  (sync-metadata/sync-db-metadata! (api/check-404 (Database id)))
   {:status :ok})
+
+;; TODO - do we also want an endpoint to manually trigger analysis. Or separate ones for classification/fingerprinting?
 
 ;; Should somehow trigger cached-values/cache-field-values-for-database!
 (api/defendpoint POST "/:id/rescan_values"
   "Trigger a manual scan of the field values for this `Database`."
   [id]
+  (check-superuser)
+  ;; TODO - should this happen async?
+  (sync-field-values/update-field-values! (api/check-404 (Database id)))
   {:status :ok})
 
+
 ;; "Discard saved field values" action in db UI
+(defn- database->field-values-ids [database-or-id]
+  (map :id (db/query {:select    [[:fv.id :id]]
+                      :from      [[FieldValues :fv]]
+                      :left-join [[Field :f] [:= :fv.field_id :f.id]
+                                  [Table :t] [:= :f.table_id :t.id]]
+                      :where     [:= :t.db_id (u/get-id database-or-id)]})))
+
+(defn- delete-all-field-values-for-database! [database-or-id]
+  (when-let [field-values-ids (seq (database->field-values-ids database-or-id))]
+    (db/execute! {:delete-from FieldValues
+                  :where       [:in :id field-values-ids]})))
+
+
+;; TODO - should this be something like DELETE /api/database/:id/field_values instead?
 (api/defendpoint POST "/:id/discard_values"
   "Discards all saved field values for this `Database`."
   [id]
+  (api/check-superuser)
+  (delete-all-field-values-for-database! id)
   {:status :ok})
 
 

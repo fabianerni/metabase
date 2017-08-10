@@ -3,17 +3,10 @@ import cx from "classnames";
 import _ from "underscore";
 
 import FormMessage from "metabase/components/form/FormMessage";
-import Select from "metabase/components/Select";
 
 import SchedulePicker from "metabase/components/SchedulePicker";
 import MetabaseAnalytics from "metabase/lib/analytics";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
-
-
-const DB_SYNC_OPTIONS = [
-    { name: 'Hourly' },
-    { name: 'Daily' }
-]
 
 export const SyncOption = ({ selected, name, description, children, select }) =>
     <div className="py2 relative" onClick={() => select(name.toLowerCase()) }>
@@ -27,7 +20,12 @@ export const SyncOption = ({ selected, name, description, children, select }) =>
                 borderStyle: 'solid'
             }}
         >
-            { selected && <div className="circle" style={{ width: 8, height: 8, backgroundColor: selected ? '#509ee3' : '#ddd' }}></div> }
+            { selected &&
+                <div
+                    className="circle"
+                    style={{ width: 8, height: 8, backgroundColor: selected ? '#509ee3' : '#ddd' }}
+                />
+            }
         </div>
         <div className="Form-offset">
             <div className={cx({ 'text-brand': selected })}>
@@ -56,7 +54,7 @@ export default class DatabaseSchedulingForm extends Component {
         this.setState({
             unsavedDatabase: {
                 ...this.state.unsavedDatabase,
-                sync_schedule: newSchedule
+                metadata_sync_schedule: newSchedule
             }
         })
     }
@@ -113,8 +111,8 @@ export default class DatabaseSchedulingForm extends Component {
                                     updates to this database’s schema. In most cases, you should be fine leaving this
                                     set to sync hourly.</p>
                                 <SchedulePicker
-                                    schedule={!_.isString(unsavedDatabase.sync_schedule)
-                                        ? unsavedDatabase.sync_schedule
+                                    schedule={!_.isString(unsavedDatabase.metadata_sync_schedule)
+                                        ? unsavedDatabase.metadata_sync_schedule
                                         : {
                                             schedule_day: "mon",
                                             schedule_frame: null,

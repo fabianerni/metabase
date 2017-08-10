@@ -406,7 +406,7 @@
 (api/defendpoint POST "/:id/sync_schema"
   "Trigger a manual update of the schema metadata for this `Database`."
   [id]
-  (check-superuser)
+  (api/check-superuser)
   ;; TODO - should this happen async?
   (sync-metadata/sync-db-metadata! (api/check-404 (Database id)))
   {:status :ok})
@@ -417,7 +417,7 @@
 (api/defendpoint POST "/:id/rescan_values"
   "Trigger a manual scan of the field values for this `Database`."
   [id]
-  (check-superuser)
+  (api/check-superuser)
   ;; TODO - should this happen async?
   (sync-field-values/update-field-values! (api/check-404 (Database id)))
   {:status :ok})

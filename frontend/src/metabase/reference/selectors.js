@@ -14,11 +14,13 @@ import {
 
 // import { getDatabases, getTables, getFields, getMetrics, getSegments } from "metabase/selectors/metadata";
 
-import { getShallowDatabases as getDatabases, getShallowTables as getTables, getShallowFields as getFields, getShallowMetrics as getMetrics, getShallowSegments as getSegments } from "metabase/selectors/metadata";
+import {
+    getShallowDatabases as getDatabases, getShallowTables as getTables, getShallowFields as getFields,
+    getShallowMetrics as getMetrics, getShallowSegments as getSegments
+} from "metabase/selectors/metadata";
 export { getShallowDatabases as getDatabases, getShallowTables as getTables, getShallowFields as getFields, getShallowMetrics as getMetrics, getShallowSegments as getSegments } from "metabase/selectors/metadata";
 
 import _ from "underscore";
-
 
 export const getUser = (state, props) => state.currentUser;
 
@@ -167,3 +169,28 @@ export const getGuide = (state, props) => state.reference.guide;
 export const getDashboards = (state, props) => getDashboardListing(state) && resourceListToMap(getDashboardListing(state));
 
 export const getIsDashboardModalOpen = (state, props) => state.reference.isDashboardModalOpen;
+
+
+export const getFieldFingerprint = (state) =>
+    state.reference.fieldFingerprint && state.reference.fieldFingerprint.fingerprint
+
+export const getTableFingerprint = (state) =>
+    state.reference.tableFingerprint && state.reference.tableFingerprint.fingerprint
+
+export const getSegmentFingerprint = (state) =>
+    state.reference.segmentFingerprint && state.reference.segmentFingerprint.fingerprint
+
+export const getTableConstituents = (state) =>
+    state.reference.tableFingerprint && (
+        Object.keys(state.reference.tableFingerprint.constituents).map(key =>
+            state.reference.tableFingerprint.constituents[key]
+        )
+    )
+
+export const getSegmentConstituents = (state) =>
+    state.reference.segmentFingerprint && (
+        Object.keys(state.reference.segmentFingerprint.constituents).map(key =>
+            state.reference.segmentFingerprint.constituents[key]
+        )
+    )
+

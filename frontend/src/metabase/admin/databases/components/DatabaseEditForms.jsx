@@ -4,9 +4,7 @@ import cx from "classnames";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper.jsx";
 import DatabaseDetailsForm from "metabase/components/DatabaseDetailsForm.jsx";
 
-
 export default class DatabaseEditForms extends Component {
-
     static propTypes = {
         database: PropTypes.object,
         details: PropTypes.object,
@@ -18,7 +16,7 @@ export default class DatabaseEditForms extends Component {
     };
 
     render() {
-        let { database, details, hiddenFields, engines, formState: { formError, formSuccess } } = this.props;
+        let { database, details, hiddenFields, engines, formState: { formError, formSuccess, isSubmitting } } = this.props;
 
         let errors = {};
         return (
@@ -47,7 +45,8 @@ export default class DatabaseEditForms extends Component {
                             ...database,
                             id: this.props.database.id
                         }, database.details)}
-                        submitButtonText={'Save'}>
+                        submitButtonText={'Save'}
+                        submitting={isSubmitting}>
                     </DatabaseDetailsForm>
                     : null
                 }

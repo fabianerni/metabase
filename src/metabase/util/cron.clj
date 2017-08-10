@@ -2,23 +2,27 @@
   "Utility functions for converting frontend schedule dictionaries to cron strings and vice versa.
    See http://www.quartz-scheduler.org/documentation/quartz-2.x/tutorials/crontrigger.html#format for details on cron format"
   (:require [clojure.string :as str]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [metabase.util.schema :as su]))
+
+(def ^:private CronHour
+  (s/constrained s/Int (fn [n]
+                         (and (>= n 0)
+                              (<= n 23)))))
 
 (def ^:private ScheduleMap
   "Schema for a frontend-parsable schedule map. Used for Pulses and DB scheduling."
   {(s/optional-key :schedule_day)   (s/maybe (s/enum "sun" "mon" "tues" "wed" "thu" "fri" "sat"))
    (s/optional-key :schedule_frame) (s/maybe (s/enum "first" "mid" "last"))
-   (s/optional-key :schedule_hour)  (s/maybe (s/constrained s/Int (fn [n]
-                                                                    (and (>= n 0)
-                                                                         (<= n 23)))))
+   (s/optional-key :schedule_hour)  (s/maybe CronHour)
    :schedule_type                   (s/enum "hourly" "daily" "weekly" "monthly")})
 
 ;;; ------------------------------------------------------------ Schedule Map -> Cron String ------------------------------------------------------------
 
-(defn- cron-string
+(s/defn ^:private ^:always-validate cron-string :- su/CronScheduleString
   "Build a cron string from key-value pair parts."
   {:style/indent 0}
-  [& {:keys [seconds minutes hours day-of-month month day-of-week year]}]
+  [{:keys [seconds minutes hours day-of-month month day-of-week year]}]
   (str/join " " [(or seconds      "0")
                  (or minutes      "0")
                  (or hours        "*")
@@ -41,16 +45,16 @@
    "mid"   15
    "last"  "L"})
 
-(s/defn ^:always-validate schedule-map->cron-string :- s/Str
+(s/defn ^:always-validate schedule-map->cron-string :- su/CronScheduleString
   "Convert the frontend schedule map into a cron string."
   [{day-of-week :schedule_day, day-of-month :schedule_frame, hour :schedule_hour, schedule-type :schedule_type} :- ScheduleMap]
-  (apply cron-string (case (keyword schedule-type)
-                       :hourly  nil
-                       :daily   [:hours hour]
-                       :weekly  [:hours       hour
-                                 :day-of-week (day-of-week->cron day-of-week)]
-                       :monthly [:hours        hour
-                                 :day-of-month (day-of-month->cron day-of-month)])))
+  (cron-string (case (keyword schedule-type)
+                 :hourly  {}
+                 :daily   {:hours hour}
+                 :weekly  {:hours       hour
+                           :day-of-week (day-of-week->cron day-of-week)}
+                 :monthly {:hours        hour
+                           :day-of-month (day-of-month->cron day-of-month)})))
 
 
 ;;; ------------------------------------------------------------ Cron String -> Schedule Map ------------------------------------------------------------
@@ -82,7 +86,7 @@
     :else                                      "hourly"))
 
 (s/defn ^:always-validate cron-string->schedule-map :- ScheduleMap
-  [cron-string :- s/Str]
+  [cron-string :- su/CronScheduleString]
   (let [[_ _ hours day-of-month _ day-of-week _] (str/split cron-string #"\s+")]
     {:schedule_day   (cron->day-of-week day-of-week)
      :schedule_frame (cron->day-of-month day-of-month)

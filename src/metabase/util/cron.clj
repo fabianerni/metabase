@@ -10,12 +10,16 @@
                          (and (>= n 0)
                               (<= n 23)))))
 
-(def ^:private ScheduleMap
+(def ScheduleMap
   "Schema for a frontend-parsable schedule map. Used for Pulses and DB scheduling."
-  {(s/optional-key :schedule_day)   (s/maybe (s/enum "sun" "mon" "tues" "wed" "thu" "fri" "sat"))
-   (s/optional-key :schedule_frame) (s/maybe (s/enum "first" "mid" "last"))
-   (s/optional-key :schedule_hour)  (s/maybe CronHour)
-   :schedule_type                   (s/enum "hourly" "daily" "weekly" "monthly")})
+  (su/with-api-error-message
+      (s/named
+       {(s/optional-key :schedule_day)   (s/maybe (s/enum "sun" "mon" "tues" "wed" "thu" "fri" "sat"))
+        (s/optional-key :schedule_frame) (s/maybe (s/enum "first" "mid" "last"))
+        (s/optional-key :schedule_hour)  (s/maybe CronHour)
+        :schedule_type                   (s/enum "hourly" "daily" "weekly" "monthly")}
+       "Expanded schedule map")
+    "value must be a valid schedule map. See schema in metabase.util.cron for details."))
 
 ;;; ------------------------------------------------------------ Schedule Map -> Cron String ------------------------------------------------------------
 

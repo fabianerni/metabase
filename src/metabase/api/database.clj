@@ -7,12 +7,12 @@
              [config :as config]
              [driver :as driver]
              [events :as events]
+             [public-settings :as public-settings]
              [sample-data :as sample-data]
              [util :as u]]
             [metabase.api
              [common :as api]
              [table :as table-api]]
-            [metabase.public-settings :as public-settings]
             [metabase.models
              [card :refer [Card]]
              [database :as database :refer [Database protected-password]]
@@ -22,14 +22,17 @@
              [permissions :as perms]
              [table :refer [Table]]]
             [metabase.query-processor.util :as qputil]
-            [metabase.util.schema :as su]
-            [metabase.sync.field-values :as sync-field-values]
-            [metabase.sync.sync-metadata :as sync-metadata]
-            [metabase.util.cron :as cron-util]
+            [metabase.sync
+             [field-values :as sync-field-values]
+             [sync-metadata :as sync-metadata]]
+            [metabase.util
+             [cron :as cron-util]
+             [schema :as su]]
             [schema.core :as s]
             [toucan
              [db :as db]
-             [hydrate :refer [hydrate]]]))
+             [hydrate :refer [hydrate]]])
+  (:import metabase.models.database.DatabaseInstance))
 
 (def DBEngine
   "Schema for a valid database engine name, e.g. `h2` or `postgres`."
@@ -147,12 +150,24 @@
 
 ;;; ------------------------------------------------------------ GET /api/database/:id ------------------------------------------------------------
 
+(def ^:private ExpandedSchedulesMap
+  "Schema for the `:schedules` key we add to the response containing 'expanded' versions of the CRON schedules.
+   This same key is used in reverse to update the schedules."
+  (su/with-api-error-message
+      (s/named
+       {(s/optional-key :cache_field_values) cron-util/ScheduleMap
+        (s/optional-key :metadata_sync)      cron-util/ScheduleMap}
+       "Map of expanded schedule maps")
+    "value must be a valid map of schedule maps for a DB."))
+
+(s/defn ^:private ^:always-validate expanded-schedules [db :- DatabaseInstance]
+  {:cache_field_values (cron-util/cron-string->schedule-map (:cache_field_values_schedule db))
+   :metadata_sync      (cron-util/cron-string->schedule-map (:metadata_sync_schedule db))})
+
 (defn- add-expanded-schedules
   "Add 'expanded' versions of the cron schedules strings for DB in a format that is appropriate for frontend consumption."
   [db]
-  (assoc db
-    :schedules {:cache_field_values (cron-util/cron-string->schedule-map (:cache_field_values_schedule db))
-                :metadata_sync      (cron-util/cron-string->schedule-map (:metadata_sync_schedule db))}))
+  (assoc db :schedules (expanded-schedules db)))
 
 (api/defendpoint GET "/:id"
   "Get `Database` with ID."
@@ -314,13 +329,25 @@
       (recur engine (assoc details :ssl false))
       (or error details))))
 
+(def ^:private CronSchedulesMap
+  "Schema with values for a DB's schedules that can be put directly into the DB."
+  {(s/optional-key :metadata_sync_schedule)      su/CronScheduleString
+   (s/optional-key :cache_field_values_schedule) su/CronScheduleString})
+
+(s/defn ^:privaet ^:always-validate schedule-map->cron-strings :- CronSchedulesMap
+  [{:keys [metadata_sync cache_field_values]} :- ExpandedSchedulesMap]
+  (cond-> {}
+    metadata_sync      (assoc :metadata_sync_schedule      (cron-util/schedule-map->cron-string metadata_sync))
+    cache_field_values (assoc :cache_field_values_schedule (cron-util/schedule-map->cron-string metadata_sync))))
+
 (api/defendpoint POST "/"
   "Add a new `Database`."
-  [:as {{:keys [name engine details is_full_sync]} :body}]
+  [:as {{:keys [name engine details is_full_sync schedules]} :body}]
   {name         su/NonBlankString
    engine       DBEngine
    details      su/Map
-   is_full_sync (s/maybe s/Bool)}
+   is_full_sync (s/maybe s/Bool)
+   schedules    (s/maybe ExpandedSchedulesMap)}
   (api/check-superuser)
   ;; this function tries connecting over ssl and non-ssl to establish a connection
   ;; if it succeeds it returns the `details` that worked, otherwise it returns an error
@@ -328,11 +355,18 @@
                            (assoc details :ssl true)
                            details)
         details-or-error (test-connection-details engine details)
-        is-full-sync?     (or (nil? is_full_sync)
-                              (boolean is_full_sync))]
+        is-full-sync?    (or (nil? is_full_sync)
+                             (boolean is_full_sync))]
     (if-not (false? (:valid details-or-error))
       ;; no error, proceed with creation. If record is inserted successfuly, publish a `:database-create` event. Throw a 500 if nothing is inserted
-      (u/prog1 (api/check-500 (db/insert! Database, :name name, :engine engine, :details details-or-error, :is_full_sync is-full-sync?))
+      (u/prog1 (api/check-500 (db/insert! Database
+                                (merge
+                                 {:name         name
+                                  :engine       engine
+                                  :details      details-or-error
+                                  :is_full_sync is-full-sync?}
+                                 (when schedules
+                                   (schedule-map->cron-strings schedules)))))
         (events/publish-event! :database-create <>))
       ;; failed to connect, return error
       {:status 400
@@ -353,10 +387,11 @@
 
 (api/defendpoint PUT "/:id"
   "Update a `Database`."
-  [id :as {{:keys [name engine details is_full_sync description caveats points_of_interest]} :body}]
-  {name    su/NonBlankString
-   engine  DBEngine
-   details su/Map}
+  [id :as {{:keys [name engine details is_full_sync description caveats points_of_interest schedules]} :body}]
+  {name      su/NonBlankString
+   engine    DBEngine
+   details   su/Map
+   schedules (s/maybe ExpandedSchedulesMap)}
   (api/check-superuser)
   (api/let-404 [database (Database id)]
     (let [details      (if-not (= protected-password (:password details))
@@ -368,16 +403,20 @@
       (if-not conn-error
         ;; no error, proceed with update
         (do
-          ;; TODO: is there really a reason to let someone change the engine on an existing database?
+          ;; TODO - is there really a reason to let someone change the engine on an existing database?
           ;;       that seems like the kind of thing that will almost never work in any practical way
+          ;; TODO - this means one cannot unset the description. Does that matter?
           (api/check-500 (db/update-non-nil-keys! Database id
-                           :name               name
-                           :engine             engine
-                           :details            details
-                           :is_full_sync       is_full_sync
-                           :description        description
-                           :caveats            caveats
-                           :points_of_interest points_of_interest)) ; TODO - this means one cannot unset the description. Does that matter?
+                           (merge
+                            {:name               name
+                             :engine             engine
+                             :details            details
+                             :is_full_sync       is_full_sync
+                             :description        description
+                             :caveats            caveats
+                             :points_of_interest points_of_interest}
+                            (when schedules
+                              (schedule-map->cron-strings schedules)))))
           (events/publish-event! :database-update (Database id)))
         ;; failed to connect, return error
         {:status 400

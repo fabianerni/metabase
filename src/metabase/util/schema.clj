@@ -9,10 +9,13 @@
   (:import org.quartz.CronExpression))
 
 (defn with-api-error-message
-  "Return SCHEMA with an additional API-ERROR-MESSAGE that will be used to explain the error if a parameter fails validation."
+  "Return SCHEMA with an additional API-ERROR-MESSAGE that will be used to explain the error if a parameter fails
+  validation."
   {:style/indent 1}
   [schema api-error-message]
-  {:pre [(map? schema)]}
+  ;; Has to be a schema (or similar) record type because a simple map would just end up adding a new required key.
+  ;; One easy way to get around this is to just wrap your schema in `s/named`
+  {:pre [(record? schema)]}
   (assoc schema :api-error-message api-error-message))
 
 (defn- existing-schema->api-error-message
@@ -139,15 +142,17 @@
   (with-api-error-message (s/maybe {s/Keyword (s/enum "disabled" "enabled" "locked")})
     "value must be a valid embedding params map."))
 
-
+;; TODO - this should probably be moved to `metabase.util.cron` now that we have it
 (def CronScheduleString
   "Schema for a valid cron schedule string."
   ;; See `http://www.quartz-scheduler.org/documentation/quartz-2.x/tutorials/crontrigger#format` for details on Cron string format
-  (s/constrained
-   NonBlankString
-   (fn [^String s]
-     (try (CronExpression/validateExpression s)
-          true
-          (catch Throwable _
-            false)))
-   "Invalid cron schedule string."))
+  (with-api-error-message
+      (s/constrained
+       NonBlankString
+       (fn [^String s]
+         (try (CronExpression/validateExpression s)
+              true
+              (catch Throwable _
+                false)))
+       "Invalid cron schedule string.")
+    "value must be a valid Quartz cron schedule string."))

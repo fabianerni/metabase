@@ -130,18 +130,9 @@
     (conj (vec dbs) virtual-db-metadata)
     dbs))
 
-(defn- add-expanded-schedules
-  "Add 'expanded' versions of the cron schedules strings for DBS in a format that is appropriate for frontend consumption."
-  [dbs]
-  (for [db dbs]
-    ;; TODO - should we remove the originals as well?
-    (assoc db
-      :schedules {:cache_field_values (cron-util/cron-string->schedule-map (:cache_field_values_schedule db))
-                  :metadata_sync      (cron-util/cron-string->schedule-map (:metadata_sync_schedule db))})))
-
 (defn- dbs-list [include-tables? include-cards?]
   (when-let [dbs (seq (filter mi/can-read? (db/select Database {:order-by [:%lower.name]})))]
-    (cond-> (add-expanded-schedules (add-native-perms-info dbs))
+    (cond-> (add-native-perms-info dbs)
       include-tables? add-tables
       include-cards?  add-virtual-tables-for-saved-cards)))
 
@@ -156,10 +147,17 @@
 
 ;;; ------------------------------------------------------------ GET /api/database/:id ------------------------------------------------------------
 
+(defn- add-expanded-schedules
+  "Add 'expanded' versions of the cron schedules strings for DB in a format that is appropriate for frontend consumption."
+  [db]
+  (assoc db
+    :schedules {:cache_field_values (cron-util/cron-string->schedule-map (:cache_field_values_schedule db))
+                :metadata_sync      (cron-util/cron-string->schedule-map (:metadata_sync_schedule db))}))
+
 (api/defendpoint GET "/:id"
   "Get `Database` with ID."
   [id]
-  (api/read-check Database id))
+  (add-expanded-schedules (api/read-check Database id)))
 
 
 ;;; ------------------------------------------------------------ GET /api/database/:id/metadata ------------------------------------------------------------

@@ -54,9 +54,12 @@ export default class DatabaseSchedulingForm extends Component {
         this.setState({
             unsavedDatabase: {
                 ...this.state.unsavedDatabase,
-                metadata_sync_schedule: newSchedule
+                schedules: {
+                    ...((this.state.unsavedDatabase && this.state.unsavedDatabase.schedules) || {}),
+                    metadata_sync: newSchedule
+                }
             }
-        })
+        });
     }
 
     updateFieldScanSchedule = (newSchedule, changedProp) => {
@@ -69,9 +72,12 @@ export default class DatabaseSchedulingForm extends Component {
         this.setState({
             unsavedDatabase: {
                 ...this.state.unsavedDatabase,
-                cache_field_values_schedule: newSchedule
+                schedules: {
+                    ...((this.state.unsavedDatabase && this.state.unsavedDatabase.schedules) || {}),
+                    cache_field_values: newSchedule
+                }
             }
-        })
+        });
     }
 
     setIsFullSyncAndIsStatic = (isFullSync, isStatic) => {
@@ -99,6 +105,8 @@ export default class DatabaseSchedulingForm extends Component {
         const { formState: { formError, formSuccess } } = this.props
         const { unsavedDatabase } = this.state
 
+        console.log("unsavedDatabase:", unsavedDatabase); // NOCOMMIT
+
         return (
             <LoadingAndErrorWrapper loading={!this.props.database} error={null}>
                 { () =>
@@ -111,21 +119,21 @@ export default class DatabaseSchedulingForm extends Component {
                                     updates to this database’s schema. In most cases, you should be fine leaving this
                                     set to sync hourly.</p>
                                 <SchedulePicker
-                                    schedule={!_.isString(unsavedDatabase.metadata_sync_schedule)
-                                        ? unsavedDatabase.metadata_sync_schedule
-                                        : {
-                                            schedule_day: "mon",
-                                            schedule_frame: null,
-                                            schedule_hour: 0,
-                                            schedule_type: "daily"
-                                        }
+                                    schedule={!_.isString(unsavedDatabase.schedules && unsavedDatabase.schedules.metadata_sync)
+                                            ? unsavedDatabase.schedules.metadata_sync
+                                            : {
+                                                schedule_day: "mon",
+                                                schedule_frame: null,
+                                                schedule_hour: 0,
+                                                schedule_type: "daily"
+                                            }
                                     }
                                     scheduleOptions={["hourly", "daily"]}
                                     onScheduleChange={this.updateSchemaSyncSchedule}
                                 />
                             </div>
                             <div className="mt2">
-                                <h3>Field figerprinting</h3>
+                                <h3>Caching Field Values</h3>
                                 <p className="text-paragraph text-measure">Metabase can scan the values present in each
                                     field in this database to enable checkbox filters in dashboards and questions. This
                                     can be a somewhat resource-intensive process, particularly if you have a very large
@@ -143,14 +151,14 @@ export default class DatabaseSchedulingForm extends Component {
 
                                             <div className="flex align-center">
                                                 <SchedulePicker
-                                                    schedule={!_.isString(unsavedDatabase.cache_field_values_schedule)
-                                                        ? unsavedDatabase.cache_field_values_schedule
-                                                        : {
-                                                            schedule_day: "mon",
-                                                            schedule_frame: null,
-                                                            schedule_hour: 0,
-                                                            schedule_type: "daily"
-                                                        }
+                                                    schedule={!_.isString(unsavedDatabase.schedules && unsavedDatabase.schedules.cache_field_values)
+                                                            ? unsavedDatabase.schedules.cache_field_values
+                                                            : {
+                                                                schedule_day: "mon",
+                                                                schedule_frame: null,
+                                                                schedule_hour: 0,
+                                                                schedule_type: "daily"
+                                                            }
                                                     }
                                                     scheduleOptions={["daily", "weekly", "monthly"]}
                                                     onScheduleChange={this.updateFieldScanSchedule}

@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import cx from "classnames";
 import _ from "underscore";
-import { assocIn } from "icepick";
+import { assocIn, chain } from "icepick";
 
 import FormMessage from "metabase/components/form/FormMessage";
 
@@ -68,16 +68,11 @@ export default class DatabaseSchedulingForm extends Component {
     setIsFullSyncAndIsStatic = (isFullSync, isStatic) => {
         // TODO: Add event tracking
 
-        this.setState({
-            unsavedDatabase: {
-                ...this.state.unsavedDatabase,
-                is_full_sync: isFullSync,
-                details: {
-                    ...this.state.unsavedDatabase.details,
-                    is_static: isStatic
-                }
-            }
-        })
+        this.setState(
+            chain(this.state)
+                .assocIn(["unsavedDatabase", "is_full_sync"], isFullSync)
+                .assocIn(["unsavedDatabase", "details", "is_static"], isStatic)
+        );
     }
 
     onSubmitForm = (event) => {
@@ -89,8 +84,6 @@ export default class DatabaseSchedulingForm extends Component {
     render() {
         const { formState: { formError, formSuccess } } = this.props
         const { unsavedDatabase } = this.state
-
-        console.log("unsavedDatabase:", unsavedDatabase); // NOCOMMIT
 
         return (
             <LoadingAndErrorWrapper loading={!this.props.database} error={null}>

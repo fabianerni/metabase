@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import cx from "classnames";
 import _ from "underscore";
+import { assocIn } from "icepick";
 
 import FormMessage from "metabase/components/form/FormMessage";
 
@@ -51,15 +52,7 @@ export default class DatabaseSchedulingForm extends Component {
             changedProp.value
         );
 
-        this.setState({
-            unsavedDatabase: {
-                ...this.state.unsavedDatabase,
-                schedules: {
-                    ...((this.state.unsavedDatabase && this.state.unsavedDatabase.schedules) || {}),
-                    metadata_sync: newSchedule
-                }
-            }
-        });
+        this.setState(assocIn(this.state, ["unsavedDatabase", "schedules", "metadata_sync"], newSchedule));
     }
 
     updateFieldScanSchedule = (newSchedule, changedProp) => {
@@ -69,15 +62,7 @@ export default class DatabaseSchedulingForm extends Component {
             changedProp.value
         );
 
-        this.setState({
-            unsavedDatabase: {
-                ...this.state.unsavedDatabase,
-                schedules: {
-                    ...((this.state.unsavedDatabase && this.state.unsavedDatabase.schedules) || {}),
-                    cache_field_values: newSchedule
-                }
-            }
-        });
+        this.setState(assocIn(this.state, ["unsavedDatabase", "schedules", "cache_field_values"], newSchedule));
     }
 
     setIsFullSyncAndIsStatic = (isFullSync, isStatic) => {
